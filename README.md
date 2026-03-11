@@ -3,35 +3,44 @@
 ## Overview
 This project implements a **matrix multiplication accelerator using a systolic array architecture** in **Verilog HDL**.
 
-The design is built using a grid of **processing elements (PEs)** that perform **multiply–accumulate (MAC) operations**. Data flows rhythmically through the array, allowing multiple partial products to be computed in parallel.
+The design consists of a grid of **processing elements (PEs)** that perform **multiply–accumulate (MAC) operations** while data flows through the array in a pipelined manner.
 
-## Architecture
+## Processing Element (PE)
 
-### Processing Element (PE)
-Each processing element performs a **multiply-accumulate operation**:
+Each processing element performs a **multiply–accumulate operation**:
 
 C = C + (A × B)
 
 Each PE:
-- Receives elements of matrix **A** from the left
-- Receives elements of matrix **B** from the top
+- Receives matrix **A** values from the left
+- Receives matrix **B** values from the top
 - Multiplies the inputs
-- Accumulates the result
-- Passes data to neighboring PEs
+- Accumulates the result locally
+- Forwards A to the right and B downward
 
-### Systolic Array
-The PEs are arranged in a **2D processing array** where:
-- Matrix **A values propagate horizontally**
-- Matrix **B values propagate vertically**
-- Partial sums accumulate locally in each PE
+## Systolic Processing Array
 
-This architecture enables **high parallelism and efficient data reuse**, making it well suited for hardware acceleration.
+The processing elements are arranged in a **2D grid** where:
+
+- **A matrix elements propagate horizontally**
+- **B matrix elements propagate vertically**
+- **Partial sums accumulate inside each PE**
+
+This allows multiple partial products to be computed **simultaneously**, improving throughput.
+
+## Input Buffering
+
+To ensure correct alignment of operands inside the systolic array, the input streams are **staggered using buffering**.
+
+Rows of matrix **A** and columns of matrix **B** are delayed before entering the array so that the correct operands arrive at each processing element at the same clock cycle.
+
+This buffering ensures that:
+- Each PE receives the appropriate pair \(A_{ik}\) and \(B_{kj}\)
+- Multiply–accumulate operations occur in the correct sequence
+- Data flows through the array in a synchronized pipeline
 
 ## Implementation
 - Written in **Verilog HDL**
 - Modular **processing element design**
-- 2D **systolic processing array**
-- Multiply–accumulate datapath
-
-## Purpose
-The project demonstrates how **matrix multiplication can be accelerated in hardware using systolic architectures**, which are widely used in **AI accelerators, GPUs, and tensor processors**.
+- **2D systolic processing array**
+- **Buffered input streams for proper data alignment**
