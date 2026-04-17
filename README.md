@@ -1,46 +1,106 @@
 # Systolic Matrix Multiplication Accelerator (Verilog)
 
-## Overview
-This project implements a **matrix multiplication accelerator using a systolic array architecture** in **Verilog HDL**.
+## NxN Systolic Array Matrix Multiplier
 
-The design consists of a grid of **processing elements (PEs)** that perform **multiply–accumulate (MAC) operations** while data flows through the array in a pipelined manner.
+A parameterizable **N×N matrix multiplier** implemented in Verilog using a **systolic array** architecture. The design supports signed integers, is fully pipelined, and includes a self-checking testbench.
 
-## Processing Element (PE)
+---
 
-Each processing element performs a **multiply–accumulate operation**:
+## Architecture Overview
 
-C = C + (A × B)
+The multiplier is built around a 2D array of **Processing Elements (PEs)** arranged in a systolic fashion. Each PE performs a Multiply-Accumulate (MAC) operation and passes data to its right and downward neighbours on every clock cycle.
+              b[0]  b[1]  b[2]
+                |     |     |
+      a[0] --> PE -- PE -- PE
+      |     |     |
+      a[1] --> PE -- PE -- PE
+      |     |     |
+      a[2] --> PE -- PE -- PE
 
-Each PE:
-- Receives matrix **A** values from the left
-- Receives matrix **B** values from the top
-- Multiplies the inputs
-- Accumulates the result locally
-- Forwards A to the right and B downward
+### Key Design Decisions
 
-## Systolic Processing Array
+- **Skew buffer**: Input vectors `a` and `b` are diagonally skewed before entering the array so that the correct elements meet at each PE at the right time.
+- **Overflow prevention**: The accumulator width is set to `2*DATA_WIDTH + ceil(log2(N))` bits, ensuring no overflow during the MAC accumulation.
+- **`valid_out` signal**: After `3*N` clock cycles from the start of a computation, `valid_out` is asserted to indicate the result matrix `c_flat` is ready.
+- **`clear` signal**: Resets all accumulators and the skew buffer between back-to-back multiplications without needing a full reset.
 
-The processing elements are arranged in a **2D grid** where:
+---
 
-- **A matrix elements propagate horizontally**
-- **B matrix elements propagate vertically**
-- **Partial sums accumulate inside each PE**
+## File Structure
 
-This allows multiple partial products to be computed **simultaneously**, improving throughput.
+| File | Description |
+|---|---|
+| `pe.v` | Processing Element — performs MAC and passes data to neighbours |
+| `NxN_multiplier.v` | Top-level module — instantiates the PE array and manages data skewing |
+| `tb_NxN_multiplier.v` | Self-checking testbench with 5 test cases |
 
-## Input Buffering
+---
 
-To ensure correct alignment of operands inside the systolic array, the input streams are **staggered using buffering**.
+## Parameters
 
-Rows of matrix **A** and columns of matrix **B** are delayed before entering the array so that the correct operands arrive at each processing element at the same clock cycle.
+| Parameter | Default | Description |
+|---|---|---|
+| `N` | `5` | Matrix dimension (N×N) |
+| `DATA_WIDTH` | `16` | Bit width of each input element |
+| `ACC_WIDTH` | `2*DATA_WIDTH + $clog2(N)` | Bit width of each output/accumulator element |
 
-This buffering ensures that:
-- Each PE receives the appropriate pair \(A_{ik}\) and \(B_{kj}\)
-- Multiply–accumulate operations occur in the correct sequence
-- Data flows through the array in a synchronized pipeline
+---
 
-## Implementation
-- Written in **Verilog HDL**
-- Modular **processing element design**
-- **2D systolic processing array**
-- **Buffered input streams for proper data alignment**
+## I/O Ports
+
+### `NxN_multiplier`
+
+| Port | Direction | Width | Description |
+|---|---|---|---|
+| `clk` | Input | 1 | Clock |
+| `reset` | Input | 1 | Synchronous reset |
+| `clear` | Input | 1 | Clears accumulators for next multiplication |
+| `a_flat` | Input | `N*DATA_WIDTH` | Row-major flattened matrix A |
+| `b_flat` | Input | `N*DATA_WIDTH` | Row-major flattened matrix B |
+| `c_flat` | Output | `N*N*ACC_WIDTH` | Row-major flattened result matrix C = A×B |
+| `valid_out` | Output | 1 | Asserted when `c_flat` holds a valid result |
+
+> **Note:** Verilog does not support 2D arrays as ports, so all matrices are passed as flattened 1D buses.
+
+### `pe` (Processing Element)
+
+| Port | Direction | Width | Description |
+|---|---|---|---|
+| `clk` | Input | 1 | Clock |
+| `reset` | Input | 1 | Synchronous reset |
+| `clear` | Input | 1 | Clears accumulator |
+| `a_in` | Input | `DATA_WIDTH` | Data from the left |
+| `b_in` | Input | `DATA_WIDTH` | Data from above |
+| `a_out` | Output | `DATA_WIDTH` | Passes `a_in` to the right |
+| `b_out` | Output | `DATA_WIDTH` | Passes `b_in` downward |
+| `acc` | Output | `ACC_WIDTH` | Running accumulation result |
+
+---
+
+## Timing
+
+The design has a latency of **`3*N` clock cycles** from when the first input column is presented to when `valid_out` is asserted.
+
+For the default `N=5`, that is a 15-cycle latency.
+
+### Drive Sequence (per multiplication)
+
+1. Assert `clear` on a negedge; drive column 0 of A and row 0 of B.
+2. Deassert `clear` on the next negedge; drive column 0 again (first real data latch).
+3. Drive columns 1 through N-1 on each subsequent negedge.
+4. Zero the inputs after the last column.
+5. Wait for `valid_out` to be asserted — `c_flat` now holds C = A×B.
+
+---
+
+## Testbench
+
+`tb_NxN_multiplier.v` tests a 3×3 instance (`N=3`, `DATA_WIDTH=16`) against a software golden reference with 5 test cases:
+
+| Test | Description |
+|---|---|
+| 1 | A × Identity = A |
+| 2 | General positive integers |
+| 3 | Mixed negative integers |
+| 4 | All-zeros matrices |
+| 5 | Back-to-back multiplication (verifies `clear` behaviour) |
