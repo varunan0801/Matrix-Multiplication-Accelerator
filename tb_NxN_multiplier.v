@@ -1,17 +1,11 @@
 `timescale 1ns / 1ps
 module tb_NxN_multiplier;
 
-  // ----------------------------------------------------------------
-  // Parameters
-  // ----------------------------------------------------------------
   parameter integer N          = 3;
   parameter integer DATA_WIDTH = 16;
   parameter integer ACC_WIDTH  = 2*DATA_WIDTH + $clog2(N);
   parameter integer CLK_PERIOD = 10;
 
-  // ----------------------------------------------------------------
-  // DUT signals
-  // ----------------------------------------------------------------
   reg                             clk;
   reg                             reset;
   reg                             clear;
@@ -20,7 +14,6 @@ module tb_NxN_multiplier;
   wire signed [N*N*ACC_WIDTH-1:0] c_flat;
   wire                            valid_out;
 
-  // debug unpacking
   wire signed [ACC_WIDTH-1:0] c_dbg [0:N-1][0:N-1];
   genvar l, m;
   generate
@@ -31,9 +24,6 @@ module tb_NxN_multiplier;
       end
   endgenerate
 
-  // ----------------------------------------------------------------
-  // DUT instantiation
-  // ----------------------------------------------------------------
   NxN_multiplier #(
     .N          (N),
     .DATA_WIDTH (DATA_WIDTH),
@@ -48,23 +38,14 @@ module tb_NxN_multiplier;
     .valid_out (valid_out)
   );
 
-  // ----------------------------------------------------------------
-  // Clock
-  // ----------------------------------------------------------------
   initial clk = 0;
   always #(CLK_PERIOD/2) clk = ~clk;
 
-  // ----------------------------------------------------------------
-  // Storage
-  // ----------------------------------------------------------------
   reg signed [DATA_WIDTH-1:0] A_mat [0:N-1][0:N-1];
   reg signed [DATA_WIDTH-1:0] B_mat [0:N-1][0:N-1];
   reg signed [ACC_WIDTH-1:0]  C_exp [0:N-1][0:N-1];
   integer row, col, pass_count, fail_count;
 
-  // ----------------------------------------------------------------
-  // Task: golden reference
-  // ----------------------------------------------------------------
   task compute_golden;
     integer r, c, kk;
     begin
@@ -77,9 +58,6 @@ module tb_NxN_multiplier;
     end
   endtask
 
-  // ----------------------------------------------------------------
-  // Task: check and print PASS/FAIL
-  // ----------------------------------------------------------------
   task check_result;
     input integer test_id;
     integer r, c;
@@ -101,9 +79,6 @@ module tb_NxN_multiplier;
     end
   endtask
 
-  // ----------------------------------------------------------------
-  // Task: drive column t of A and row t of B into flat inputs
-  // ----------------------------------------------------------------
   task drive_col;
     input integer t;
     integer r, c;
@@ -115,17 +90,6 @@ module tb_NxN_multiplier;
     end
   endtask
 
-  // ----------------------------------------------------------------
-  // Task: run one full multiplication
-  //
-  // Timing (verified by simulation trace):
-  //   negedge: assert clear AND drive col 0 simultaneously
-  //   next posedge: DUT latches clear=1 - resets accumulators and skew buf
-  //   next negedge: deassert clear, drive col 0 again (first real data)
-  //   next posedge: DUT latches clear=0, latches col 0 into A_d[i][0]
-  //   next negedge: drive col 1
-  //   ... and so on for N columns total
-  // ----------------------------------------------------------------
   task run_test;
     input integer test_id;
     integer t;
@@ -161,9 +125,6 @@ module tb_NxN_multiplier;
     end
   endtask
 
-  // ----------------------------------------------------------------
-  // Test sequence
-  // ----------------------------------------------------------------
   initial begin
     $dumpfile("tb_NxN_multiplier.vcd");
     $dumpvars(0, tb_NxN_multiplier);
@@ -177,9 +138,6 @@ module tb_NxN_multiplier;
     repeat(4) @(posedge clk);
     reset = 0;
 
-    // ----------------------------------------
-    // Test 1: A x Identity = A
-    // ----------------------------------------
     $display("Test 1: A x Identity");
     A_mat[0][0]=1;  A_mat[0][1]=2;  A_mat[0][2]=3;
     A_mat[1][0]=4;  A_mat[1][1]=5;  A_mat[1][2]=6;
@@ -189,9 +147,6 @@ module tb_NxN_multiplier;
     B_mat[2][0]=0;  B_mat[2][1]=0;  B_mat[2][2]=1;
     run_test(1);
 
-    // ----------------------------------------
-    // Test 2: general positive
-    // ----------------------------------------
     $display("Test 2: general positive");
     A_mat[0][0]=1;  A_mat[0][1]=2;  A_mat[0][2]=3;
     A_mat[1][0]=4;  A_mat[1][1]=5;  A_mat[1][2]=6;
@@ -201,9 +156,6 @@ module tb_NxN_multiplier;
     B_mat[2][0]=3;  B_mat[2][1]=2;  B_mat[2][2]=1;
     run_test(2);
 
-    // ----------------------------------------
-    // Test 3: negative numbers
-    // ----------------------------------------
     $display("Test 3: negative numbers");
     A_mat[0][0]=-1; A_mat[0][1]=2;  A_mat[0][2]=-3;
     A_mat[1][0]=4;  A_mat[1][1]=-5; A_mat[1][2]=6;
@@ -213,9 +165,7 @@ module tb_NxN_multiplier;
     B_mat[2][0]=7;  B_mat[2][1]=-8; B_mat[2][2]=9;
     run_test(3);
 
-    // ----------------------------------------
-    // Test 4: all zeros
-    // ----------------------------------------
+
     $display("Test 4: all zeros");
     for (row = 0; row < N; row = row + 1)
       for (col = 0; col < N; col = col + 1) begin
@@ -224,9 +174,6 @@ module tb_NxN_multiplier;
       end
     run_test(4);
 
-    // ----------------------------------------
-    // Test 5: back-to-back (verifies clear works)
-    // ----------------------------------------
     $display("Test 5: back-to-back (verifies clear)");
     A_mat[0][0]=1;  A_mat[0][1]=2;  A_mat[0][2]=3;
     A_mat[1][0]=4;  A_mat[1][1]=5;  A_mat[1][2]=6;
@@ -236,9 +183,7 @@ module tb_NxN_multiplier;
     B_mat[2][0]=3;  B_mat[2][1]=2;  B_mat[2][2]=1;
     run_test(5);
 
-    // ----------------------------------------
-    // Summary
-    // ----------------------------------------
+
     $display("----------------------------------------");
     $display("Results: %0d / %0d passed", pass_count, pass_count+fail_count);
     if (fail_count == 0)
