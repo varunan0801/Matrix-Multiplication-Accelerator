@@ -8,14 +8,18 @@ A parameterizable **N×N matrix multiplier** implemented in Verilog using a **sy
 
 ## Architecture Overview
 
-The multiplier is built around a 2D array of **Processing Elements (PEs)** arranged in a systolic fashion. Each PE performs a Multiply-Accumulate (MAC) operation and passes data to its right and downward neighbours on every clock cycle.
-              b[0]  b[1]  b[2]
-                |     |     |
-      a[0] --> PE -- PE -- PE
-      |     |     |
-      a[1] --> PE -- PE -- PE
-      |     |     |
-      a[2] --> PE -- PE -- PE
+The multiplier is built around a 2D array of **Processing Elements (PEs)** arranged in a systolic fashion.  
+Each PE performs a Multiply-Accumulate (MAC) operation.
+
+```text
+        b[0]   b[1]   b[2]
+          |      |      |
+a[0] --> PE --> PE --> PE
+          |      |      |
+a[1] --> PE --> PE --> PE
+          |      |      |
+a[2] --> PE --> PE --> PE
+```
 
 ### Key Design Decisions
 
